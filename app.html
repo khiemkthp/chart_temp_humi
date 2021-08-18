@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+	<script src="https://code.highcharts.com/modules/exporting.js"></script>
+	<script src="./Input-Spinner-Plugin-Bootstrap-4/src/bootstrap-input-spinner.js" ></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretty-checkbox@3.0/dist/pretty-checkbox.min.css" >
+	
+	
+</head>
+
+<body>
+<div class="row">
+	<div class="col-lg-9" style="height:650px;min-height:100px;margin:0 auto;" id="main"></div>
+	<div class="col-lg-3">
+		<div id="getdata_change" style="padding-top: 20px; margin-left: 20px;"> 
+			<span id="input_change">
+				<label for="spinner_dura">Chọn khoảng thời gian giữa các lần lấy:</label>
+				<input id="spinner_dura" type="number" value="5" min="5" max="60" step="5"> Giây
+				<br>
+				<label for="spinner_temp">Chọn chênh lệch nhiệt độ lấy vào:</label>
+				<input id="spinner_temp" type="number" value="0.1" min="0.1" max="2.0" step="0.1" data-decimals="1"> °C
+				<br><br>
+				<button onclick="change_input()" >Thực hiện</button>
+				<br><br><br>
+			</span>
+			
+			<span id="warning_change" >
+				<div class="pretty p-switch p-fill">
+					<input type="checkbox" id="check_A"/>
+					<div class="state">
+						<label>Số giá trị để đánh giá</label>
+					</div>
+				</div>
+				<input id="spinner_num" type="number" value="1" min="1" max="10" step="1">
+
+				<br><br>
+
+				<label>Chênh lệch trung bình</label>
+				<input id="spinner_medi" type="number" value="5" min="2" max="50" step="1"> °C
+				<br><br>
+				<div class="pretty p-switch p-fill">
+					<input type="checkbox" id="check_B"/>
+					<div class="state">
+						<label>Khoảng đánh giá</label>
+					</div>
+				</div>
+				<br>Min   <input id="spinner_min" type="number" value="0" min="0" max="50" step="1"> °C
+				<br><br>Max <input id="spinner_max" type="number" value="50" min="0" max="100" step="1"> °C
+				<br><br>
+				<button onclick="change_warning()" >Thực hiện</button>  
+			</span>
+	</div>
+</div>
+
+<script type="text/javascript">
+function change_input() {
+
+	var data_1 = $("#spinner_dura").val();
+	var data_2 = $("#spinner_temp").val();
+	var x = {
+		"change" : 1501,
+		"spinner_dura" : data_1,
+		"spinner_temp" : data_2
+	}
+	$.ajax({
+		type: "GET",
+		url: 'index.php',
+		data: x,
+		success : function(response) {
+			alert("Success change!");
+		}
+	});
+}
+function change_warning() {
+	var getdata = {};
+	getdata["change"] = "1502";
+	getdata["type"] = 0;
+	var isA = $('#check_A').prop('checked');
+	var isB = $('#check_B').prop('checked');
+
+	if(!isA&&!isB) {
+		alert("Chọn ít nhất 1 cách cảnh báo (checkbox) ");
+		return;
+	}
+
+	if(isA) {
+		getdata["type"] += 1;
+	}
+	if(isB) {
+		getdata["type"] += 2;
+	}
+	getdata["spinner_num"] = $('#spinner_num').val();
+	getdata["spinner_medi"] = $('#spinner_medi').val();
+	getdata["spinner_min"] = $('#spinner_min').val();
+	getdata["spinner_max"] = $('#spinner_max').val();
+	
+	alert(JSON.stringify( getdata));
+	$.ajax({
+		type: "GET",
+		url: 'index.php',
+		data: getdata,
+		success :function(response) {
+			alert("Success change!");
+		}
+	});
+}
+Highcharts.setOptions({
+	global: {
+		useUTC: false
+	}
+});
+function activeLastPointToolip(chart) {
+	var points = chart.series[0].points;
+	chart.tooltip.refresh(points[points.length -1]);
+}
+var temp_1 = 10.21;
+// alert(json_temp);
+$('#main').highcharts({
+	chart: {
+		type: 'spline',
+		animation: Highcharts.svg,
+		marginRight: 10,
+		events: {
+			load: function () {
+				
+				var series_temp = this.series[0],
+				series_humi = this.series[1],
+				chart = this;
+				
+				var STT = 0;
+				setInterval(function () {
+					$.ajax({
+            			type: "GET",
+            			url: 'getdata.php',
+            			data: {"check" : 1501},
+            			success: function(response)
+            			{
+							var myArr = JSON.parse(response);
+							 
+							json_humi = myArr['humi'];
+							json_temp = myArr['temp'];
+							if(STT!=myArr['STT']) {
+								STT = myArr['STT'];
+								bindData(json_temp,json_humi);
+							}
+           				}
+       				});
+					
+				}, 5000);
+
+
+				function bindData(json_temp,json_humi) {
+					var x = (new Date()).getTime(), 
+					y_temp = Number(json_temp),
+					y_humi = Number(json_humi);
+					console.log(typeof(y_temp));
+					console.log("YT:", y_temp);
+					console.log("YH", y_humi);
+		
+					series_temp.addPoint([x, y_temp], true, true);		
+					series_humi.addPoint([x, y_humi], true, true);
+					activeLastPointToolip(chart);
+				}
+
+				/*
+				setInterval(function () {
+					$.ajax({
+            			type: "GET",
+            			url: 'getdata.php',
+            			data: {"check" : 1501},
+            			success: function(response)
+            			{
+							var myArr = JSON.parse(response);
+							 
+							json_humi = myArr['humi'];
+							json_temp = myArr['temp']
+           				}
+       				});
+		
+					var x = (new Date()).getTime(), 
+					y_temp = Number(json_temp),
+					y_humi = Number(json_humi);
+					console.log(typeof(y_temp));
+					console.log("YT:", y_temp);
+					console.log("YH", y_humi);
+		
+					series_temp.addPoint([x, y_temp], true, true);		
+					series_humi.addPoint([x, y_humi], true, true);
+					activeLastPointToolip(chart);
+				}, 5000);
+				*/
+			}
+		}
+	},
+	title: {
+		text: 'Temperature & Humidity'
+	},
+	credits: { 
+		enabled: false 
+	},
+	xAxis: {
+		type: 'datetime',
+		tickPixelInterval: 150
+	},
+	yAxis: {
+		title: {
+		text: 'data sensor'
+		},
+		plotLines: [{
+			value: 0,
+			width: 1,
+			color: '#808080'
+		}]
+	},
+	tooltip: {
+		formatter: function () {
+			return '<b>' + this.series.name + '</b><br/>' +
+			Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) + '<br/>' +
+			Highcharts.numberFormat(this.y, 2);
+		}
+	},
+	legend: {
+		enabled: false
+	},
+	exporting: {
+		enabled: false
+	},
+	series: [
+	{
+		name: 'temperature',
+		data: (function () {
+			// generate an array of random data
+			var data = [],
+			time = (new Date()).getTime(),
+			i;
+			for (i = -19; i <= 0; i += 1) {
+				data.push({
+					x: time + i * 1000,
+					y: Math.random()
+				});
+			}
+			return data;
+		}())
+	},
+	{
+		name: 'humidity',
+		data: (function () {
+			// generate an array of random data
+			var data = [],
+			time = (new Date()).getTime(),
+			i;
+			for (i = -19; i <= 0; i += 1) {
+				data.push({
+					x: time + i * 1000,
+					y: Math.random()
+				});
+			}
+			return data;
+		}())
+	}]
+}, function(c) {
+	activeLastPointToolip(c)
+});
+		
+</script>
+
+</body>
+
+
+
+</html> 
+<script type="text/javascript">
+	$(function () {
+		$("#spinner_dura").spinner();
+		$("#spinner_temp").spinner();
+		$("#spinner_num").spinner();
+		$("#spinner_medi").spinner();
+		$("#spinner_min").spinner();
+		$("#spinner_max").spinner();
+
+	} );
+</script>
